@@ -8,7 +8,7 @@ const StorageService = require("./classes/StorageService");
 const app = express();
 const port = 3000;
 
-const allowedDomains = ["http://localhost:4200"];
+const allowedDomains = ["http://localhost:4200","https://documentsearchservice-dev-borneo.onrender.com"];
 
 const corsOptions = {
     origin: allowedDomains,

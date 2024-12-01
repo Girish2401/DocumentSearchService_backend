@@ -8,7 +8,7 @@ const StorageService = require("./classes/StorageService");
 const app = express();
 const port = 3000;
 
-const allowedDomains = ["http://localhost:4200","https://documentsearchservice-dev-borneo.onrender.com"];
+const allowedDomains = ["http://localhost:4200", "https://documentsearchservice-dev-borneo.onrender.com"];
 
 const corsOptions = {
     origin: allowedDomains,
@@ -29,6 +29,15 @@ app.get('/api/search', async (req, res) => {
     res.status(200).json({ results: files });
 });
 
+app.get('/api/all', async (req, res) => {
+    let ES = new ESStore(constants.CLUSTER_ENDPOINT, constants.ES_API_KEY);
+    const files = await ES.getAllFiles();
+    if (files.length === 0) {
+        return res.status(404).json({ message: 'No files found containing the search term.' });
+    }
+    res.status(200).json({ results: files });
+});
+
 (async () => {
     try {
         app.listen(port, () => {
@@ -39,14 +48,12 @@ app.get('/api/search', async (req, res) => {
         await ES.createIndex();
         let store = new StorageService();
         const files = await store.fetchFiles();
-        // console.log(files);
         for (const file of files.entries) {
             let content = await store.getFileContent(file.path_lower, file.name);
-            await ES.indexDocument(file.name, content, file.id);
+            await ES.indexDocument(file.name, content, file.id, file.size, file.client_modified);
         }
     } catch (error) {
         console.log("error has occured", error);
-
     }
 })();
 

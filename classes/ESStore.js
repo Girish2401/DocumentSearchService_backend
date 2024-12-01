@@ -39,42 +39,6 @@ class ESStore {
         }
     }
 
-    // async createConnection(clusterEndpoint, ESaccessToken) {
-    //     try {
-    //         // Validate that the required variables are defined
-    //         if (!clusterEndpoint) {
-    //             throw new Error("Elasticsearch cluster endpoint is undefined. Ensure it is set correctly.");
-    //         }
-    //         if (!ESaccessToken) {
-    //             throw new Error("Elasticsearch access token (API_KEY) is undefined. Ensure you have provided a valid API key.");
-    //         }
-
-    //         // Initialize a new Elasticsearch client instance
-    //         this.client = new Client({
-    //             // Specify the endpoint of the Elasticsearch cluster (Elastic Cloud or on-premises)
-    //             node: clusterEndpoint,
-
-    //             // Authentication settings
-    //             auth: {
-    //                 // API key for authenticating requests to Elasticsearch
-    //                 // Replace 'ESaccessToken' with your actual API key generated from the Elastic Cloud Console or your Elasticsearch cluster
-    //                 apiKey: ESaccessToken,
-    //             },
-
-    //             // Enable detailed logging for troubleshooting and debugging
-    //             // Options include: 'error', 'warning', 'info', 'debug', and 'trace'
-    //             // 'trace' provides the most detailed logging information, but should be used cautiously in production.
-    //             log: 'trace',
-    //         });
-
-    //         console.log("Elasticsearch client initialized successfully.");
-
-    //     } catch (error) {
-    //         // Catch and log any errors during initialization
-    //         console.error("Failed to initialize Elasticsearch client:", error.message);
-    //     }
-    // }
-
     async checkConnection() {
         try {
             // Use the ping method to check if the Elasticsearch cluster is reachable
@@ -98,7 +62,9 @@ class ESStore {
                         properties: {
                             filename: { type: 'text' },
                             content: { type: 'keyword' },
-                            dropboxFileId: { type: "text" }
+                            dropboxFileId: { type: "text" },
+                            size: { type: "integer" },
+                            modifiedDate: { type: "date" }
                         },
                     },
                 },
@@ -117,7 +83,7 @@ class ESStore {
     * @param {string} dropboxFileId - The unique identifier for the file in Dropbox.
     */
     // Function to index a document in Elasticsearch
-    async indexDocument(filename, content, dropboxFileId) {
+    async indexDocument(filename, content, dropboxFileId, size, modifiedDate) {
         try {
             // Validate input parameters
             if (!filename || !content || !dropboxFileId) {
@@ -129,7 +95,9 @@ class ESStore {
                 document: {
                     filename,
                     content,
-                    dropboxFileId
+                    dropboxFileId,
+                    size,
+                    modifiedDate
                 }
             });
             console.log(`Document indexed successfully: ${response._id}`);
@@ -157,7 +125,7 @@ class ESStore {
                         content: `*${searchTerm}*`  // Matches any content containing the searchTerm
                     }
                 },
-                _source: ['filename', 'dropboxFileId']  // Only return the 'filename' and 'dropboxFileId' fields
+                _source: ['filename', 'dropboxFileId', 'size', 'modifiedDate']  // Only return the 'filename' and 'dropboxFileId' fields
             };
 
 
@@ -172,6 +140,8 @@ class ESStore {
                 return {
                     filename: hit._source.filename,
                     url: `https://www.dropbox.com/s/${hit._source.dropboxFileId}/${hit._source.filename}?dl=0`, // Replace with your file server URL
+                    size: hit._source.size,
+                    modifiedDate: hit._source.modifiedDate
                 };
             });
 
@@ -180,6 +150,35 @@ class ESStore {
         } catch (error) {
             console.error('Error searching Elasticsearch:', error);
             // res.status(500).json({ error: 'Failed to search documents' });
+        }
+    }
+
+    async getAllFiles() {
+        try {
+            const result = await this.client.search({
+                index: constants.INDEX_NAME,
+                body: {
+                    query: {
+                        match_all: {}
+                    }
+                }
+            });
+
+            const hits = result.hits.hits.map(hit => {
+                return {
+                    filename: hit._source.filename,
+                    url: `https://www.dropbox.com/s/${hit._source.dropboxFileId}/${hit._source.filename}?dl=0`, // Replace with your file server URL
+                    size: hit._source.size,
+                    modifiedDate: hit._source.modifiedDate
+                };
+            });
+
+            // Return the list of files and URLs
+            return hits;
+        }
+        catch (error) {
+            console.error('Error fetching documents:', error);
+
         }
     }
 }

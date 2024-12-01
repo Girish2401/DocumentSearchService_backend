@@ -1,7 +1,8 @@
 const constants = require("../constants");
 const https = require('https');
 const fetch = require('node-fetch');
-
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 
 class StorageService {
     constructor() { }
@@ -71,9 +72,35 @@ class StorageService {
                 );
             }
 
+            // Get the file data as a buffer
+            const fileBuffer = await response.buffer();
+
+            // Determine file type based on file extension or content
+            const fileExtension = filename ? filename.split('.').pop().toLowerCase() : '';
+
             // Parse and return the file content as text
-            const fileContent = await response.text();
-            return fileContent;
+            // const fileContent = await response.text();
+
+            // Handle different file types
+            switch (fileExtension) {
+                case 'txt':
+                    // Handle .txt files (simple text)
+                    const textContent = fileBuffer.toString('utf8');
+                    return textContent;
+
+                case 'pdf':
+                    // Handle .pdf files (parse PDF)
+                    const pdfData = await pdfParse(fileBuffer);
+                    return pdfData.text; // Return extracted text from PDF
+
+                case 'docx':
+                    // Handle .docx files (parse DOCX)
+                    const docxData = await mammoth.extractRawText({ buffer: fileBuffer });
+                    return docxData.value; // Return extracted text from DOCX
+
+                default:
+                    throw new Error(`Unsupported file type: ${fileExtension}`);
+            }
         } catch (error) {
             // Log error details for debugging
             console.error(
